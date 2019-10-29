@@ -11,6 +11,8 @@ import sys
 import argparse
 import csv
 
+from movie import Movie
+
 def connectToDatabase():
     return mysql.connector.connect(user='predictor', password='predictor',
                               host='127.0.0.1',
@@ -34,8 +36,8 @@ def findAllQuery(table):
 def insert_people_query(firstname, lastname):
     return (f"INSERT INTO `people` (`firstname`, `lastname`) VALUES ('{firstname}', '{lastname}');")
 
-def insert_movie_query(title, original_title, duration, rating, release_date):
-    return (f"INSERT INTO `movies` (`title`, `original_title`, `duration`, `rating`, `release_date`) VALUES ('{title}', '{original_title}', {duration}, '{rating}', '{release_date}');")
+def insert_movie_query(movie):
+    return (f"INSERT INTO `movies` (`title`, `original_title`, `duration`, `rating`, `release_date`) VALUES ('{movie.title}', '{movie.original_title}', {movie.duration}, '{movie.rating}', '{movie.release_date}');")
 
 
 def find(table, id):
@@ -52,10 +54,22 @@ def findAll(table):
     cnx = connectToDatabase()
     cursor = createCursor(cnx)
     cursor.execute(findAllQuery(table))
-    results = cursor.fetchall()
+    results = cursor.fetchall() # liste de dictionnaires contenant des valeurs scalaires
     closeCursor(cursor)
     disconnectDatabase(cnx)
-    return results
+    if (table == "movies"):
+        movies = []
+        for result in results: # result: dictionnaire avec id, title, ...
+            movie = Movie(
+                title=result['title'],
+                original_title=result['original_title'],
+                duration=result['duration'],
+                release_date=result['release_date'],
+                rating=result['rating']
+            )
+            movie.id = result['id']
+            movies.append(movie)
+        return movies
 
 def insert_people(firstname, lastname):
     cnx = connectToDatabase()
@@ -67,10 +81,10 @@ def insert_people(firstname, lastname):
     disconnectDatabase(cnx)
     return last_id
 
-def insert_movie(title, original_title, duration, rating, release_date):
+def insert_movie(movie):
     cnx = connectToDatabase()
     cursor = createCursor(cnx)
-    cursor.execute(insert_movie_query(title, original_title, duration, rating, release_date))
+    cursor.execute(insert_movie_query(movie))
     cnx.commit()
     last_id = cursor.lastrowid
     closeCursor(cursor)
@@ -81,7 +95,7 @@ def printPerson(person):
     print("#{}: {} {}".format(person['id'], person['firstname'], person['lastname']))
 
 def printMovie(movie):
-    print("#{}: {} released on {}".format(movie['id'], movie['title'], movie['release_date']))
+    print("#{}: {} released on {}".format(movie.id, movie.title, movie.release_date))
 
 parser = argparse.ArgumentParser(description='Process MoviePredictor data')
 
@@ -150,13 +164,8 @@ if args.context == "movies":
             printMovie(movie)
     if args.action == "insert":
         print(f"Insertion d'un nouveau film: {args.title}")
-        movie_id = insert_movie(
-            title=args.title,
-            original_title=args.original_title,
-            duration=args.duration,
-            rating=args.rating,
-            release_date=args.release_date
-        )
+        movie = Movie(args.title, args.original_title, args.duration, args.release_date, args.rating)
+        movie_id = insert_movie(movie)
         print(f"Nouveau film inséré avec l'id '{movie_id}'")
     if args.action == "import":
         with open(args.file, 'r', encoding='utf-8', newline='\n') as csvfile:
