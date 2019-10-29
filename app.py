@@ -46,9 +46,17 @@ def find(table, id):
     query = findQuery(table, id)
     cursor.execute(query)
     results = cursor.fetchall()
+
+    entity = None
+    if (cursor.rowcount == 1):
+        row = results[0]
+        if (table == "movies"):
+            entity = Movie(row['title'], row['original_title'], row['duration'], row['release_date'], row['rating'])
+            entity.id = row['id']
     closeCursor(cursor)
     disconnectDatabase(cnx)
-    return results
+
+    return entity
 
 def findAll(table):
     cnx = connectToDatabase()
@@ -159,8 +167,10 @@ if args.context == "movies":
             printMovie(movie)
     if args.action == "find":  
         movieId = args.id
-        movies = find("movies", movieId)
-        for movie in movies:
+        movie = find("movies", movieId)
+        if (movie == None):
+            print(f"Aucun film avec l'id {movieId} n'a été trouvé ! Try again!")
+        else:
             printMovie(movie)
     if args.action == "insert":
         print(f"Insertion d'un nouveau film: {args.title}")
